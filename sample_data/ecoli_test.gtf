@@ -8,5 +8,5 @@ U00096.3	Genbank	repeat_region	1	90000	.	+	.	ID=repeat_region0;Name=thrL;Dbxref=
 U00096.3	Genbank	repeat_region	150001	250000	.	+	.	ID=repeat_region1;Name=thrL;Dbxref=EcoGene:EG11278;gbkey=Gene;repeat_region=thrL;repeat_region_synonym=ECK0001,JW4367;locus_tag=b0001
 U00096.3	Genbank	repeat_region	300001	403000	.	+	.	ID=repeat_region2;Name=thrL;Dbxref=EcoGene:EG11278;gbkey=Gene;repeat_region=thrL;repeat_region_synonym=ECK0001,JW4367;locus_tag=b0001
 U00096.3	Genbank	repeat_region	450001	550000	.	+	.	ID=repeat_region3;Name=thrL;Dbxref=EcoGene:EG11278;gbkey=Gene;repeat_region=thrL;repeat_region_synonym=ECK0001,JW4367;locus_tag=b0001
-U00096.3	Genbank	repeat_region	600001	700000	.	+	.	ID=repeat_region3;Name=thrL;Dbxref=EcoGene:EG11278;gbkey=Gene;repeat_region=thrL;repeat_region_synonym=ECK0001,JW4367;locus_tag=b0001
+U00096.3	Genbank	repeat_region	600001	700000	.	+	.	ID=repeat_region4;Name=thrL;Dbxref=EcoGene:EG11278;gbkey=Gene;repeat_region=thrL;repeat_region_synonym=ECK0001,JW4367;locus_tag=b0001
 ###

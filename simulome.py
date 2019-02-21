@@ -36,7 +36,7 @@ from operator import itemgetter
 
 #Defaults for optional parameters.
 desired_gene_count = 100 - 1
-spacer_length_default = 500
+spacer_length_default = 100
 random_spacer_len = 0
 feature_type = "gene"
 feature_type_len = len(feature_type)
@@ -136,7 +136,6 @@ def writeGenome(targetGff, targetGenome, isMut):
         curGenomeString = ""
         outfile = open(genome_outfile_location,"w")
         genome = curGenomeString.join(targetGenome)
-        print targetGff
         outfile.write(">" + targetGff[anno_header_offset][0] + "\n")
         outfile.write(genome)
     except Exception,e:
@@ -1332,8 +1331,8 @@ def mutateSynonymous(curGff, simGenome, synPercent, numMut, std_dev=-1):
 # simulateDuplicate:  This function creates duplicate regions of a size specified by the user.  
 ####################		
 def simulateDuplicate(curGff, simGenome, percentDuplicate, percentDeviate, isTandem):
-    dupGenomeString = ""
-    genomeLen = len(dupGenomeString.join(simGenome))
+    dupGenomeString = "".join(simGenome)
+    genomeLen = len(dupGenomeString)
     dupGff = copy.copy(curGff)
     dupGenome = copy.copy(simGenome)
     #Be sure 'percentDuplicate' is in decimal format.
@@ -1351,14 +1350,15 @@ def simulateDuplicate(curGff, simGenome, percentDuplicate, percentDeviate, isTan
     
     #Randomly copy genes from the simulated genome until the right amount of duplication is reached.
     while curDupLen <= dupLen:
-        randomGene = copy.copy(random.choice(dupGff))
+        randomPosition = random.randrange(0, len(dupGff))
+        randomGene = copy.copy(dupGff[randomPosition])
         if len(randomGene) == 1 or randomGene[2] == "region" or randomGene[2] == "chromosome":
             continue
 
         randomGeneLen = int(randomGene[4]) - int(randomGene[3])
         curDupLen = curDupLen + randomGeneLen
         dupSet.append(randomGene)
-        dupPos.append(int(randomGene[4]))
+        dupPos.append(randomPosition)
 
     #Update the GFF data to reflect which genes are duplicates.
     for i in range(len(dupSet)):
@@ -1374,8 +1374,7 @@ def simulateDuplicate(curGff, simGenome, percentDuplicate, percentDeviate, isTan
 
     #Add sequences for the selected duplicate regions to a copy of the simulated genome.
     for i in range(len(dupSet)):
-        #Append the sequence to the growing genome for the selected duplicate.
-        dupSeq = dupGenomeString.join(dupGenome)[int(dupSet[i][3]):int(dupSet[i][4])]
+        dupSeq = str(dupGenomeString[int(dupSet[i][3]):int(dupSet[i][4])])
 
         #Randomly mutate positions in the target window until the desired number of SNPs is achieved.
         curStart = int(dupSet[i][3])
@@ -1403,27 +1402,43 @@ def simulateDuplicate(curGff, simGenome, percentDuplicate, percentDeviate, isTan
 
                     if numMutated >= numSNP:
                         break
-        dupGenome.append(dupSeq)
+        if isTandem:
+           # we insert after where we come from but that may be wrong because we inserted more data earlier
+           # there is a spacer between each sequence so we need to account for that
+           offset = dupPos[i] - anno_header_offset  # this tell me which sequence it is but not the spacers
+           offset = (offset +1 )* 2                  # this accounts for the spacers, first sequence has 1 spacer, second has 2, 4th has 4
+           offset = offset + len([j for j in range(0,i) if dupPos[j] <= dupPos[i]])
+           dupGenome.insert(offset, dupSeq)
+        else:
+           dupGenome.append(dupSeq)
 
         #Update the GFF file with the new gene.
         curDup = dupSet[i]
-        curDup[3] = genomeLen
-        curDup[4] = genomeLen + len(dupSeq)
-        dupGff.append(curDup)
+        if isTandem:
+           curDup[3] = dupSet[i][4]
+           curDup[4] = dupSet[i][4]+len(dupSeq)
+           # we insert after where we come from but that may be wrong because we inserted more data earlier
+           offset = len([j for j in range(0,i) if dupPos[j] <= dupPos[i]])
+           dupGff.insert(dupPos[i]+offset+1, curDup)
+        else:
+           curDup[3] = genomeLen
+           curDup[4] = genomeLen + len(dupSeq)
+           dupGff.append(curDup)
         genomeLen = genomeLen + len(dupSeq)
 
         #Add a spacer.
-        if random_spacer_len == 1:
-            spacer_length = random.randint(0, 2000)
-        else:
-            spacer_length = spacer_length_default
+        if not isTandem:
+           if random_spacer_len == 1:
+               spacer_length = random.randint(0, 2000)
+           else:
+               spacer_length = spacer_length_default
 
-        if random_ig == 1:
-            randomSpacer(spacer_length,dupGenome)
-        else:
-            intergenicSpacer(spacer_length,dupGenome)
+           if random_ig == 1:
+               randomSpacer(spacer_length,dupGenome)
+           else:
+               intergenicSpacer(spacer_length,dupGenome)
 
-        genomeLen = genomeLen + spacer_length
+           genomeLen = genomeLen + spacer_length
 
     return [dupGff, dupGenome]
 
@@ -2079,7 +2094,7 @@ if __name__ == '__main__':
             print str(len(selectStarts)) + " genes to be selected." 
 
         for i in range(len(anno_subset)):
-            if int(anno_subset[i][3]) in selectStarts:
+            #if int(anno_subset[i][3]) in selectStarts:
                 selected.append(anno_subset[i])
         if isVerbose >= 1:
             print "Randomly selected " + str(len(selected)) + " genes."      
@@ -2130,16 +2145,21 @@ if __name__ == '__main__':
                 print "Simulation at " + str(len(seq1.seq)) + " nucleotides and growing..."
                 print "GFF at position: " + str(curPos)
 
+            blast_nuc_record=None
             seq1_file = output_dir + "/" + "curGenomeSim.fasta"
             seq2_file = output_dir + "/" + "queryGeneSim.fasta"
             SeqIO.write(seq1, seq1_file, "fasta")
             SeqIO.write(seq2, seq2_file, "fasta")
 
-            blastNucOutput = NcbiblastnCommandline(query=seq1_file, subject=seq2_file, outfmt=5)()[0]
-            blast_nuc_record = NCBIXML.read(StringIO.StringIO(blastNucOutput))
+            if (len(seq1) > 0 and len(seq2) > 0):
+               blastNucOutput = NcbiblastnCommandline(query=seq1_file, subject=seq2_file, outfmt=5)()[0]
+               blast_nuc_record = NCBIXML.read(StringIO.StringIO(blastNucOutput))
 		
             #Check if the user is okay with duplicated regions, and grow the simulation accordingly.
-            alignments = len(blast_nuc_record.alignments)
+            alignments = 0
+            if blast_nuc_record != None:
+               alignments = len(blast_nuc_record.alignments)
+
             if alignments == 0:
                 simulated_genome.append(str(selected[i][1]))
                 curGeneLen = len(selected[i][1])
