@@ -1,0 +1,12 @@
+##gff-version 3
+#!gff-spec-version 1.20
+#!processor NCBI annotwriter
+##sequence-region U00096.3 1 4641652
+##species http://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=511145
+U00096.3	Genbank	chromosome	1	4641652	.	+	.	ID=id0;Name=ANONYMOUS;Dbxref=taxon:511145;Is_circular=true;gbkey=Src;genome=chromosome;mol_type=genomic DNA;strain=K-12;substrain=MG1655
+U00096.3	Genbank	repeat_region	1	90000	.	+	.	ID=repeat_region0;Name=thrL;Dbxref=EcoGene:EG11277;gbkey=Gene;repeat_region=thrL;repeat_region_synonym=ECK0001,JW4367;locus_tag=b0001
+U00096.3	Genbank	repeat_region	150001	250000	.	+	.	ID=repeat_region1;Name=thrL;Dbxref=EcoGene:EG11278;gbkey=Gene;repeat_region=thrL;repeat_region_synonym=ECK0001,JW4367;locus_tag=b0001
+U00096.3	Genbank	repeat_region	300001	403000	.	+	.	ID=repeat_region2;Name=thrL;Dbxref=EcoGene:EG11278;gbkey=Gene;repeat_region=thrL;repeat_region_synonym=ECK0001,JW4367;locus_tag=b0001
+U00096.3	Genbank	repeat_region	450001	550000	.	+	.	ID=repeat_region3;Name=thrL;Dbxref=EcoGene:EG11278;gbkey=Gene;repeat_region=thrL;repeat_region_synonym=ECK0001,JW4367;locus_tag=b0001
+U00096.3	Genbank	repeat_region	600001	700000	.	+	.	ID=repeat_region3;Name=thrL;Dbxref=EcoGene:EG11278;gbkey=Gene;repeat_region=thrL;repeat_region_synonym=ECK0001,JW4367;locus_tag=b0001
+###
