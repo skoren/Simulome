@@ -17,6 +17,7 @@
 
 #Version 1.2
 
+import traceback
 import StringIO
 import sys
 import os
@@ -50,6 +51,7 @@ run_dup = 0
 run_del = 0
 run_ins = 0
 dup_percent = 0.0
+dev_percent = 0.0
 operon_percent = 0
 random_ig = 0
 sort_log_by = 1
@@ -124,6 +126,7 @@ def writeGenome(targetGff, targetGenome, isMut):
     except Exception,e:
         print "Error writing mutated annotation file."
         print str(e)
+        traceback.print_exc()
         sys.exit()
     finally:
         outfile.close()
@@ -133,11 +136,13 @@ def writeGenome(targetGff, targetGenome, isMut):
         curGenomeString = ""
         outfile = open(genome_outfile_location,"w")
         genome = curGenomeString.join(targetGenome)
-        outfile.write(">" + targetGff[anno_header_offset+2][0] + "\n")
+        print targetGff
+        outfile.write(">" + targetGff[anno_header_offset][0] + "\n")
         outfile.write(genome)
     except Exception,e:
         print "Error writing simulated genome FASTA file."
         print str(e)
+        traceback.print_exc()
         sys.exit()
     finally:
         outfile.close()
@@ -1326,7 +1331,7 @@ def mutateSynonymous(curGff, simGenome, synPercent, numMut, std_dev=-1):
 ####################
 # simulateDuplicate:  This function creates duplicate regions of a size specified by the user.  
 ####################		
-def simulateDuplicate(curGff, simGenome, percentDuplicate):
+def simulateDuplicate(curGff, simGenome, percentDuplicate, percentDeviate, isTandem):
     dupGenomeString = ""
     genomeLen = len(dupGenomeString.join(simGenome))
     dupGff = copy.copy(curGff)
@@ -1337,6 +1342,7 @@ def simulateDuplicate(curGff, simGenome, percentDuplicate):
     print "\tgenome len: " + str(genomeLen)
     dupLen = percentDuplicate * genomeLen
     dupSet = []
+    dupPos = []
     curDupLen = 0
     global mutation_count
 
@@ -1352,6 +1358,7 @@ def simulateDuplicate(curGff, simGenome, percentDuplicate):
         randomGeneLen = int(randomGene[4]) - int(randomGene[3])
         curDupLen = curDupLen + randomGeneLen
         dupSet.append(randomGene)
+        dupPos.append(int(randomGene[4]))
 
     #Update the GFF data to reflect which genes are duplicates.
     for i in range(len(dupSet)):
@@ -1369,6 +1376,33 @@ def simulateDuplicate(curGff, simGenome, percentDuplicate):
     for i in range(len(dupSet)):
         #Append the sequence to the growing genome for the selected duplicate.
         dupSeq = dupGenomeString.join(dupGenome)[int(dupSet[i][3]):int(dupSet[i][4])]
+
+        #Randomly mutate positions in the target window until the desired number of SNPs is achieved.
+        curStart = int(dupSet[i][3])
+
+        dupLen = len(dupSeq)
+        numSNP = int(dupLen*(percentDeviate*.01))+1
+        numMutated = 0
+        while numMutated < numSNP:
+            for j in range(dupLen):
+                mutateChance = random.randint(0,dupLen)
+                if mutateChance <= numSNP:
+                    newBase = mutateBase(dupSeq[j])
+                    absoluteStartPos = curStart + j
+
+                    if isVerbose == 2:
+                        print "\tAbsolute position: " + str(curStart + j)
+                        print "\tRelative position: " + str(j)
+                        print "\t\tSNP: " + dupSeq[j] + " => " + newBase
+
+                    #Log the mutation.
+                    mutation_log.append([absoluteStartPos, absoluteStartPos+1, "SNP", dupSeq[j], newBase, mutation_count])
+                    mutation_count = mutation_count + 1
+                    dupSeq = dupSeq[:j] + newBase + dupSeq[j+1:]
+                    numMutated = numMutated + 1
+
+                    if numMutated >= numSNP:
+                        break
         dupGenome.append(dupSeq)
 
         #Update the GFF file with the new gene.
@@ -1549,6 +1583,8 @@ if __name__ == '__main__':
     dupmode = OptionGroup(parser, "Duplication Run Mode")
     dupmode.add_option("--duplicate", dest="dup_mode", help="Mutated genome will contain duplicate regions. TRUE/FALSE. ")
     dupmode.add_option("--percent_dup", dest="percent_dup", help="Percent of duplicate regions in the genome. Required for duplication mode.")
+    dupmode.add_option("--percent_dev", dest="percent_dev", help="Percent of deviation for the duplicated region, this will control the divergence of the duplicated sequence. Required for duplication mode.")
+    dupmode.add_option("--tandem", dest="dup_in_place", help="Duplication will be in place (tandem). TRUE/FALSE.")
 
     optionals = OptionGroup(parser, "Optional Arguments")
     optionals.add_option("--whole_genome", dest="whole_genome", help="Perform mutations on original genome data instead of simulating a pseudo-genome. TRUE/FALSE. (DEFAULT=FALSE)")
@@ -1755,7 +1791,30 @@ if __name__ == '__main__':
         if int(options.percent_dup) < 1 or int(options.percent_dup) > 100:
             print "Duplication percent must be an integer between 1-100"
             sys.exit()
+        if not options.percent_dev:
+            print "Deviation percentage required for dev run mode. (-c)"
+            sys.exit()
+        if not options.percent_dev.isdigit():
+            print "Deviation percent must be an integer between 1-100"
+            sys.exit()
+        if int(options.percent_dev) < 1 or int(options.percent_dev) > 100:
+            print "Deviation percent must be an integer between 1-100"
+            sys.exit()
+
+        if not options.dup_in_place:
+           make_tandem = 0
+        elif options.dup_in_place.upper() == "TRUE" or options.dup_in_place.upper() == "FALSE":
+            if options.dup_in_place.upper() == "TRUE":
+                make_tandem = 1
+            else:
+                make_tandem = 0
+        else:
+            print "Duplication tandem must be TRUE or FALSE."
+            sys.exit()
+
+
         dup_percent = float(options.percent_dup) 
+        dup_deviation = float(options.percent_dev)
 
     #Whole genome controls. 
     if options.whole_genome:
@@ -2007,12 +2066,15 @@ if __name__ == '__main__':
         if isVerbose >= 1:
             print "Picking random genes..."
         selectStarts = []
-        for i in range(deviation1_genes_count):
-            selectStarts.append(random.choice(deviation1_potentials))
-        for i in range(deviation2_genes_count):
-            selectStarts.append(random.choice(deviation2_potentials))
-        for i in range(deviation3_genes_count):
-            selectStarts.append(random.choice(deviation3_potentials))
+        if deviation1_genes_count > 0:
+           for i in range(deviation1_genes_count):
+               selectStarts.append(random.choice(deviation1_potentials))
+        if deviation2_genes_count > 0:
+           for i in range(deviation2_genes_count):
+               selectStarts.append(random.choice(deviation2_potentials))
+        if deviation3_genes_count > 0:
+           for i in range(deviation3_genes_count):
+               selectStarts.append(random.choice(deviation3_potentials))
         if isVerbose >= 1:
             print str(len(selectStarts)) + " genes to be selected." 
 
@@ -2227,7 +2289,7 @@ if __name__ == '__main__':
         doMutation = 1
 
     if run_dup == 1:
-        dupData = simulateDuplicate(dupData[0], dupData[1], dup_percent)
+        dupData = simulateDuplicate(dupData[0], dupData[1], dup_percent, dup_deviation, make_tandem)
         doMutation = 1
 
     if doMutation == 1:
